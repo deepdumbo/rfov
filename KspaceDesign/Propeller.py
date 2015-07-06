@@ -76,11 +76,11 @@ class Propeller:
         if corr_motion == 0:
             Ang=numpy.arange(0,NumBlade)*d_ang
 
-            print('accurate angl',Ang)
+#             print('accurate angl',Ang)
         elif corr_motion == 1:
             Ang = result_angle*numpy.pi/180.0
 #         Ang = - Ang
-            print('angles from estimation',Ang)
+#             print('angles from estimation',Ang)
         self.BLADES=numpy.empty((Nx,Ny,NumBlade),dtype=numpy.complex128)
         for pj in numpy.arange(0,NumBlade):
             

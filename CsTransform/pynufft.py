@@ -1,6 +1,6 @@
 '''
 package docstring
-author: Jyh-Miin Lin  (Jimmy), Cambridge University
+author: Jyh-Miin Lin Cambridge University
 address: jyhmiinlin at gmail.com
 Created on 2013/1/21
  
@@ -33,7 +33,7 @@ try:
     import matplotlib.pyplot
     import matplotlib.cm
     import scipy.linalg.lapack
-    import pywt # pyWavelets
+#     import pywt # pyWavelets
     
 #     import pygasp.dwt.dwt as gasp
     # import matplotlib.numerix 
@@ -95,7 +95,8 @@ class pynufft(nufft):
             
         nufft.__init__(self,om, Nd, Kd,Jd,n_shift)
         self.beta = 2 #strength of shrinkage
-        self.nufft_type= 1 # SD: SD-NUFFT, T: T-NUFFT
+        self.nufft_type= 1 # obsolte: 1: Toeplitz-NUFFT, 0: full-NUFFT
+        self.debug= 2 # 2: depicting the intermediate images; 1: txt debug; 0: off
     def initialize_gpu(self):
         nufft.initialize_gpu(self)
 #     def gpu_k_deconv(self):
@@ -126,7 +127,8 @@ class pynufft(nufft):
     def gpu_k_modulate(self):
 #         try:
         self.myfft(self.tmp_dev, self.data_dev,inverse=False)
-#         print('doing gpu_k_modulate')
+#         if self.debug > 0:
+        print('doing gpu_k_modulate')
 #         self.tmp_dev=self.W_dev*self.data_dev
 
         # element-wise multiplication is subject to changes of API in pyopencl and pycuda ...
@@ -249,9 +251,11 @@ class pynufft(nufft):
             modulate_phase = modulate_phase *my_phantom
             
             data[jj,0] = numpy.sum(modulate_phase.flatten())
-            print('running exact FFT', jj, 'of ', M, data[jj,0])
-#             matplotlib.pyplot.imshow(modulate_phase.imag)      
-#             matplotlib.pyplot.show()
+            if self.debug == 0:
+                pass
+            else:
+                print('running exact FFT', jj, 'of ', M, data[jj,0])
+
         
         return data            
     def forwardbackward(self,x):
@@ -308,7 +312,10 @@ class pynufft(nufft):
         if numpy.size(data) == self.st['M']:
             self.st['senseflag'] = 0
 #             print(numpy.size(data) )
-            print('turn-off sense recon')
+            if self.debug == 0:
+                pass
+            else:
+                print('turn-off sense recon')
     #===============================================================================
     # mask
     #===============================================================================
@@ -427,7 +434,10 @@ class pynufft(nufft):
         if numpy.size(data) == self.st['M']:
             self.st['senseflag'] = 0
 #             print(numpy.size(data) )
-            print('turn-off sense recon')
+            if self.debug == 0:
+                pass
+            else:
+                print('turn-off sense recon')
     #===============================================================================
     # mask
     #===============================================================================
@@ -551,34 +561,7 @@ class pynufft(nufft):
         self.sense_fun =numpy.mean( ( ( tmp_sense_fun2)),axis=(-1,))**(- 0.33)
         # final_sense2
         self.final_sense= 1.0 #(self.sense_fun)/(self.sense_fun*self.sense_fun.conj() + 1e-2)       
-#         if st['senseflag'] == 1:
-# #             matplotlib.pyplot.figure(40)
-# # #             matplotlib.pyplot.subplot(2,3,1)
-# #             matplotlib.pyplot.imshow(numpy.real(self.final_sense))
-# #             matplotlib.pyplot.subplot(2,3,2)
-# #             matplotlib.pyplot.figure(41)
-# #             matplotlib.pyplot.imshow(numpy.imag(self.sense_fun))
-# #             matplotlib.pyplot.show()
-# #             
-#             matplotlib.pyplot.figure(32)
-#             matplotlib.pyplot.subplot(3,3,1)
-#             matplotlib.pyplot.imshow(numpy.real(self.st['sensemap'][...,0])  )
-#             matplotlib.pyplot.subplot(3,3,2)
-#             matplotlib.pyplot.imshow(numpy.real(self.st['sensemap'][...,1])  )
-#             matplotlib.pyplot.subplot(3,3,3)
-#             matplotlib.pyplot.imshow(numpy.real(self.st['sensemap'][...,2])  ) 
-#             matplotlib.pyplot.subplot(3,3,4)
-#             matplotlib.pyplot.imshow(numpy.real(self.st['sensemap'][...,3])  ) 
-#             matplotlib.pyplot.subplot(3,3,5)
-#             matplotlib.pyplot.imshow(numpy.real(self.st['sensemap'][...,4])  ) 
-#             matplotlib.pyplot.subplot(3,3,6)
-#             matplotlib.pyplot.imshow(numpy.real(self.st['sensemap'][...,5])  ) 
-#             matplotlib.pyplot.subplot(3,3,7)
-#             matplotlib.pyplot.imshow(numpy.real(self.st['sensemap'][...,6])  ) 
-#             matplotlib.pyplot.subplot(3,3,8)
-#             matplotlib.pyplot.imshow(numpy.real(self.st['sensemap'][...,7])  ) 
-# #             matplotlib.pyplot.show()  
- 
+
     #===========================================================================
     # update sensemap so we don't need to add ['mask'] in the iteration
     #===========================================================================
@@ -647,8 +630,25 @@ class pynufft(nufft):
 #             uker = self.mu*RTR - LMBD*uker + gamma*2.0
 #         else:
         max_of_convolution = numpy.max(numpy.abs(uker[:])) # maximum value of the convolution kernel
+        if self.debug == 2:
+            matplotlib.pyplot.figure(7843)
+            matplotlib.pyplot.subplot(1,4,1)
+            matplotlib.pyplot.imshow(numpy.roll( numpy.roll( numpy.abs(RTR[:,:,0]) , self.st['Kd'][0]/2 ,axis= 0  ) , self.st['Kd'][1]/2 ,axis= 1  ) ,cmap=matplotlib.cm.gray, norm=matplotlib.colors.Normalize(vmin=0.0, vmax=6),)
+            matplotlib.pyplot.title('square of sampling density')
+            matplotlib.pyplot.subplot(1,4,2)
+            matplotlib.pyplot.imshow(numpy.roll( numpy.roll( numpy.abs(uker[:,:,0]) ,self.st['Kd'][0]/2 ,axis= 0  ) ,self.st['Kd'][1]/2 ,axis= 1  ) ,cmap=matplotlib.cm.gray,)
+            matplotlib.pyplot.title('k-space of Laplacian')
+            matplotlib.pyplot.subplot(1,4,3)
+            matplotlib.pyplot.imshow(numpy.ones((512,512),dtype=numpy.float16),cmap=matplotlib.cm.gray,norm=matplotlib.colors.Normalize(vmin=0.0, vmax=3),)
+            matplotlib.pyplot.title('unitary density')
+#         matplotlib.pyplot.show()
         uker = self.mu*RTR*33.85 / max_of_convolution - LMBD*uker   + gamma 
 #             *35/max_of_convolution 
+        if self.debug == 2:
+            matplotlib.pyplot.subplot(1,4,4)
+            matplotlib.pyplot.imshow(numpy.roll( numpy.roll( numpy.abs(uker[:,:,0]) , self.st['Kd'][0]/2 ,axis= 0  ) , self.st['Kd'][1]/2 ,axis= 1  ),cmap=matplotlib.cm.gray, norm=matplotlib.colors.Normalize(vmin=0.0, vmax=6*33.85*0.1), )
+            matplotlib.pyplot.title('decovolution kernel K')
+        
         if self.debug ==0:
             pass
         else:
@@ -659,7 +659,8 @@ class pynufft(nufft):
         uf = numpy.copy(u0)  # only used for ISRA, written here for generality
 #         if st['senseflag'] ==1: 
         alpha = self.maxrowsum()
-        print( 'uker maximum',numpy.max(numpy.abs(uker[:])),'RTR maximum',numpy.max(numpy.abs(RTR[:])),'alpha',alpha)
+        if self.debug > 0:
+            print( 'uker maximum',numpy.max(numpy.abs(uker[:])),'RTR maximum',numpy.max(numpy.abs(RTR[:])),'alpha',alpha)
         try:
             factor = self.factor
         except:
@@ -713,16 +714,70 @@ class pynufft(nufft):
             # shrinkage 
             #===================================================================
                 dd=self._update_d(u,dd)
+            
 #                 self.thresh_scale = numpy.percentile(numpy.abs(u), 100)*3.0644028/0.68602877855300903
-                print('alpha=',alpha, ',self.thresh_scale',self.thresh_scale,self.thresh_scale*33.85653/1024)
+                if self.debug > 0:
+                    print('alpha=',alpha, ',self.thresh_scale',self.thresh_scale,self.thresh_scale*33.85653/1024)
                 xx=self._shrink( dd, bb, 
                                  self.thresh_scale*self.beta*33.85653/1024)
                 #===============================================================
             #===================================================================
             # # update b
             #===================================================================
- 
+                if self.debug > 0:
+                    print(numpy.shape(xx),numpy.shape(dd),numpy.shape(bb),numpy.shape(u),numpy.shape(murf))
+
                 bb=self._update_b(bb, dd, xx)
+                if self.debug == 2:
+                    if (inner == nInner - 1 ) and (outer == nBreg - 1 ):
+                        matplotlib.pyplot.figure(10)
+                        matplotlib.pyplot.subplot(2,3,1)
+                        matplotlib.pyplot.imshow(numpy.real( dd[0][:,:,0]),cmap=matplotlib.cm.gray,norm=matplotlib.colors.Normalize(vmin=-0.01, vmax=0.01),)
+                        matplotlib.pyplot.subplot(2,3,2)
+                        matplotlib.pyplot.imshow(numpy.real( xx[0][:,:,0]),cmap=matplotlib.cm.gray,norm=matplotlib.colors.Normalize(vmin=-0.01, vmax=0.01),)
+                        matplotlib.pyplot.subplot(2,3,3)
+                        matplotlib.pyplot.imshow(numpy.real( bb[0][:,:,0]),cmap=matplotlib.cm.gray,norm=matplotlib.colors.Normalize(vmin=-0.01, vmax=0.01),)
+    
+                        
+                        matplotlib.pyplot.subplot(2,3,4)
+                        matplotlib.pyplot.imshow(numpy.real( dd[1][:,:,0]),cmap=matplotlib.cm.gray,norm=matplotlib.colors.Normalize(vmin=-0.01, vmax=0.01),)
+                        matplotlib.pyplot.subplot(2,3,5)
+                        matplotlib.pyplot.imshow(numpy.real( xx[1][:,:,0]),cmap=matplotlib.cm.gray,norm=matplotlib.colors.Normalize(vmin=-0.01, vmax=0.01),)                
+                        matplotlib.pyplot.subplot(2,3,6)
+                        matplotlib.pyplot.imshow(numpy.real( bb[1][:,:,0]),cmap=matplotlib.cm.gray,norm=matplotlib.colors.Normalize(vmin=-0.01, vmax=0.01),)
+                        
+                        matplotlib.pyplot.figure(99)
+                        matplotlib.pyplot.subplot(1,2,1)
+                        matplotlib.pyplot.imshow(numpy.real( murf[:,:,0]),cmap=matplotlib.cm.gray,)                    
+                        matplotlib.pyplot.title('to be deconvolved')
+                        matplotlib.pyplot.subplot(1,2,2)
+                        matplotlib.pyplot.imshow(numpy.real( u[:,:,0]),cmap=matplotlib.cm.gray,)
+                        matplotlib.pyplot.title('deconvolved')
+    #                     matplotlib.pyplot.show()                
+                        matplotlib.pyplot.figure(919)
+                        matplotlib.pyplot.subplot(2,2,1)
+                        matplotlib.pyplot.imshow(numpy.real( bb[0][:,:,0]),cmap=matplotlib.cm.gray,)                    
+                        matplotlib.pyplot.title('splitting variable bb_x')
+                        matplotlib.pyplot.subplot(2,2,2)
+                        matplotlib.pyplot.imshow(numpy.real( dd[0][:,:,0]),cmap=matplotlib.cm.gray,)
+                        matplotlib.pyplot.title('splitting variable dd_x')                        
+                        matplotlib.pyplot.subplot(2,2,3)
+                        matplotlib.pyplot.imshow(numpy.real( bb[1][:,:,0]),cmap=matplotlib.cm.gray,)                    
+                        matplotlib.pyplot.title('splitting variable bb_y')
+                        matplotlib.pyplot.subplot(2,2,4)
+                        matplotlib.pyplot.imshow(numpy.real( dd[1][:,:,0]),cmap=matplotlib.cm.gray,)
+                        matplotlib.pyplot.title('splitting variable dd_y')
+
+                        import pylab
+                        pylab.colorbar()
+                        matplotlib.pyplot.figure(5919)
+                        matplotlib.pyplot.subplot(1,2,1)
+                        matplotlib.pyplot.imshow(numpy.real( get_Diff_H (xx[0][:,:,0]-bb[0][:,:,0],0)),cmap=matplotlib.cm.gray,)                    
+                        matplotlib.pyplot.title('d(image -bx)/dx')
+                        matplotlib.pyplot.subplot(1,2,2)
+                        matplotlib.pyplot.imshow(numpy.real( get_Diff_H(xx[1][:,:,0]-bb[1][:,:,0],1)),cmap=matplotlib.cm.gray,)
+                        matplotlib.pyplot.title('d(image -y)/dy')
+                        matplotlib.pyplot.show()               
 #                     for jj in xrange(0,u.shape[-1]):
 #                         u[...,jj] = u[...,jj]/self.st['sn']
 #                         murf[...,jj] = murf[...,jj]/self.st['sn']
@@ -789,6 +844,7 @@ class pynufft(nufft):
         # update the right-head side terms
         rhs = (self.mu*murf + 
                self._constraint(xx,bb)) 
+       
         if n_dims == 2:
             rhs = rhs# + self.gamma * u
         else:
@@ -806,6 +862,7 @@ class pynufft(nufft):
 
 
         u = self._k_deconv(rhs, uker,self.st,flist,mylist)
+        
 #         for jj in xrange(0,rhs.shape[-1]):
 #             u  = u /self.st['sn']
 #         print('max rhs u',numpy.max(numpy.abs(rhs[:])),numpy.max(numpy.abs(u[:])))
@@ -828,9 +885,15 @@ class pynufft(nufft):
     #             U[...,pj]=self.emb_fftn(u[...,pj], st['Kd'], range(0,numpy.size(st['Kd']))) / uker[...,pj] # deconvolution
     #             U[...,pj]=self.emb_ifftn(U[...,pj], st['Kd'], range(0,numpy.size(st['Kd'])))
                 tmp=self.emb_fftn(u[...,pj], st['Kd'], range(0,numpy.size(st['Kd']))) / uker[...,pj] # deconvolution
+#                 matplotlib.pyplot.subplot(1,2,1)
+#                 matplotlib.pyplot.imshow(numpy.roll(numpy.roll(
+#                           numpy.abs( self.emb_fftn(u[...,pj], st['Kd'], range(0,numpy.size(st['Kd'])))),256,0),256,1), norm=matplotlib.colors.Normalize(vmin=0.0, vmax=0.02), cmap=matplotlib.cm.gray)
+#                 matplotlib.pyplot.subplot(1,2,2)
+#                 matplotlib.pyplot.imshow(numpy.roll(numpy.roll(
+#                                                                numpy.abs( tmp),256,0),256,1), norm=matplotlib.colors.Normalize(vmin=0.0, vmax=0.02), cmap=matplotlib.cm.gray)
+#                 matplotlib.pyplot.show()
                 u[...,pj]=self.emb_ifftn(tmp, st['Kd'], range(0,numpy.size(st['Kd'])))[[slice(0, st['Nd'][_ss]) for _ss in flist]]
     #         u = U[[slice(0, st['Nd'][_ss]) for _ss in mylist[:-1]]]
-        
         elif self.gpu_flag ==1:
 #             self.thr.to_device((1.0/uker[...,0]).astype(dtype), dest = self.W2_dev) 
          
@@ -857,7 +920,7 @@ class pynufft(nufft):
 #         #         print('doing gpu_k_modulate')
 #                 self.myfft(self.data_dev, self.data_dev,inverse=True)
                 u[...,pj] = self.data_dev.get()[[slice(0, st['Nd'][_ss]) for _ss in flist]]
-                
+
 #             U=numpy.empty(st['Kd'] ,dtype=u.dtype)
 
 #         self.W2_dev = self.thr.to_device(uker[...,0].astype(dtype)) #uker[...,pj]
@@ -984,9 +1047,10 @@ class pynufft(nufft):
 #         xx= (x,y)
 #         bb= (bx,by)
 #         dd= (dx,dy)
-        print('len(bb)',len(bb))
-        print('len(dd)',len(dd))
-        print('len(xx)',len(xx))
+        if self.debug > 0:
+            print('len(bb)',len(bb))
+            print('len(dd)',len(dd))
+            print('len(xx)',len(xx))
         return(xx,bb,dd)
 #     def _extract_svd(self,input_stack,L):
 #         C= numpy.copy(input_stack) # temporary array
@@ -1125,7 +1189,8 @@ class pynufft(nufft):
         L=numpy.shape(u0)[-1]
         try:
             st['sensemap'] = extract_svd(u0,L)
-            print('run svd')
+            if self.debug > 0:
+                print('run svd')
 #             st['sensemap']=u0
 #             matplotlib.pyplot.figure(1)
 #             for pp in xrange(0,256):
@@ -1140,7 +1205,8 @@ class pynufft(nufft):
 #             matplotlib.pyplot.show() 
             return st
         except: 
-            print('not runing svd')       
+            if self.debug > 0:
+                print('not runing svd')       
             if u0dims-1 >0:
                 rows=numpy.shape(u0)[0]
                 dpss_rows = numpy.kaiser(rows, 100)     
@@ -1310,10 +1376,11 @@ class pynufft(nufft):
                 cc=bb[pj]+dd[pj]-xx[pj]
                 out_bb=out_bb+(cc,)
         except:
-            print('error in _update_b')
-            print('len(bb)',len(bb))
-            print('len(dd)',len(dd))
-            print('len(xx)',len(xx))
+            if self.debug > 0:
+                print('error in _update_b')
+                print('len(bb)',len(bb))
+                print('len(dd)',len(dd))
+                print('len(xx)',len(xx))
         return out_bb
     def _create_mask(self):
         st=self.st
@@ -1547,8 +1614,8 @@ class pynufft(nufft):
         residue_projection = numpy.sum((p.conj()*Ap)[:])
         alfa_k = residue_square/residue_projection
         
-        
-        print('r',residue_square,'alpha_k',alfa_k)
+        if self.debug > 0:
+            print('r',residue_square,'alpha_k',alfa_k)
         #alfa_k = 0.3
         u_k_1 = u
         
@@ -1568,14 +1635,13 @@ class pynufft(nufft):
          
         return (u, murf, uf, u_k_1) 
     def _external_update(self,u, uf, u0, u_k_1, outer): # overload the update function
- 
 # #          
 #         if self.nufft_type=='SD':
 #         if self.nufft_type==0:
 # #         else: #self.nufft_type=='T'
 #         tmpuf=self.backward(self.forward(
 #                         u*self.st['sensemap']) )*self.st['sensemap'].conj()  
-#         else: #                   
+#         else: #                     
         tmpuf=self.forwardbackward(
                 u*self.st['sensemap'])*self.st['sensemap'].conj()
 
@@ -1607,7 +1673,8 @@ class pynufft(nufft):
             err2 = 0.0
                            
 #         print('outer=',outer, 'err=',err, 'err2 = ',err2)
-        print(err)
+        if self.debug > 0:
+            print(err)
          
 #         r = (u0  - tmpuf)*(1.0-self.err2) - tmpuf_order2*self.err2#/(outer+1)
         r = (u0  - tmpuf)   - tmpuf_order2*self.err2#/(outer+1)  
@@ -1966,443 +2033,8 @@ def test_prolate():
 #      
 #     matplotlib.pyplot.show()    
 #     mayavi.mlab.imshow()  
-def test_2D():
- 
-    import numpy 
-    import matplotlib#.pyplot
-    cm = matplotlib.cm.gray
-    # load example image    
-    norm=matplotlib.colors.Normalize(vmin=-0.0, vmax=1) 
-    norm2=matplotlib.colors.Normalize(vmin=0.0, vmax=0.5)
-    import cPickle
-#     image = numpy.loadtxt('phantom_256_256.txt') 
-#     matplotlib.pyplot.imshow(image[224-128:224, 64:192] ,
-#                              norm = norm,cmap= cm,interpolation = 'nearest')
-#     matplotlib.pyplot.show()    
-#     image[128,128]= 1.0   
-    N = 256
-    Nd =(N,N) # image space size
-    import phantom
-    image = phantom.phantom(Nd[0])
-    Kd =(2*N,2*N) # k-space size   
-    Jd =(6,6) # interpolation size
-    import KspaceDesign.Propeller
-    nblade =  16#numpy.round(N*3.1415/24/2)
-#     print('nblade',nblade)
-    theta=180.0/nblade #111.75 #
-    propObj=KspaceDesign.Propeller.Propeller( N ,24,  nblade,   theta,  1,  -1)
-    om = propObj.om
-     
-    NufftObj = pynufft(om, Nd,Kd,Jd )
-#         
-         
-    f = open('nufftobj.pkl','wb')
-    cPickle.dump(NufftObj,f,2)
-    f.close()
-# #      
-    f = open('nufftobj.pkl','rb')
-    NufftObj = cPickle.load(f)
-    f.close()
-
-#     f2 = open('dense_density.pkl','wb')
-#     cPickle.dump(NufftObj.st['w'],f2,-1)
-#     f2.close()
-#     print('size of sparse amtrix',NufftObj.st['p'].data.nbytes + NufftObj.st['p'].indptr.nbytes + NufftObj.st['p'].indices.nbytes)
-#     print('size of dense matrix', NufftObj.st['w'].nbytes)
 
 
-#     NufftObj = pynufft(om, (64,64),(512,512),Jd) 
-    precondition = 0
-    factor = 0.001
-    NufftObj.factor = factor
-    NufftObj.precondition = precondition
-    # simulate "data"
-    data= NufftObj.forward(image )
-#     data= NufftObj.true_forward(image )  
-    
-    data_shape = (numpy.shape(data))
-    power_of_data= numpy.max(numpy.abs(data))
-#     purpose = 2 # noisy
-    purpose = 1 # noisy
-#     purpose = 0 # noise-free
-    data = data + purpose*1e-3*power_of_data*(numpy.random.randn(data_shape[0],data_shape[1])+1.0j*numpy.random.randn(data_shape[0],data_shape[1]))
-    LMBD =1
-    nInner=2
-    nBreg = 25
-    
-    mu=1.0
-    gamma = 0.001
-    # now get the original image
-    #reconstruct image with 0.1 constraint1, 0.001 constraint2,
-    # 2 inner iterations and 10 outer iterations 
-    NufftObj.st['senseflag'] = 1
-    NufftObj.initialize_gpu() 
-#     NufftObj = pynufft(om, (64,64),(96,96),Jd)#,n_shift=(192,96))
-#     NufftObj = pynufft(om, (256,256),(512,512),Jd)  
-    image_blur = NufftObj.backward2(data)  
-    
-
-#     image_recon_inner_10 = NufftObj.pseudoinverse(data, 1.0, LMBD, gamma, 10, nBreg)
-    image_recon = NufftObj.pseudoinverse(data, 1.0, LMBD, gamma,nInner, nBreg)
-    image_recon = Normalize(image_recon.real)
-    image_blur=Normalize(numpy.real(image_blur[...,0]))*1.2 #4.9
-
-#     my_scale = numpy.mean( image_blur[round(25*N/256):round(46*N/256), round(109*N/256):round(149*N/256)].flatten())
-#     image_blur =image_blur / my_scale /5.0 
-    
-    my_scale = numpy.mean( image_recon[round(25*N/256):round(46*N/256), round(109*N/256):round(149*N/256)].flatten())
-    image_recon =image_recon / my_scale /5.0 
-#     print(my_scale)
-#     image_recon = NufftObj.pseudoinverse2(data)
-#     image_blur = NufftObj.backward2(data)
-#     if purpose == 0:
-#         image_recon = Normalize(image_recon.real)*1.05#2.2 # *1.3
-#     elif purpose == 1:
-#         image_recon = Normalize(image_recon.real)*1.1#54#2.2 # *1.3
-# #     image_recon_inner_10 = Normalize(numpy.real(image_recon_inner_10))#*  1.1# *1.3
-#     image_blur=Normalize(numpy.real(image_blur[...,0]))*1.2#4.9
-#     if purpose == 0:
-#         image_recon = Normalize(image_recon.real)*1.3#2.2 # *1.3
-#     elif purpose == 1:
-#         image_recon = Normalize(image_recon.real)*1.0#54#2.2 # *1.3
-#     elif purpose == 2:
-#         image_recon = Normalize(image_recon.real)*1.1#54#2.2 # *1.3     
-
-#     image_recon_inner_10 = Normalize(numpy.real(image_recon_inner_10))#*  1.1# *1.3
-    disp_image = numpy.concatenate( 
-                                       (
-#                         numpy.concatenate( ((  image_recon.real) , numpy.real(-image_recon  + image) ), axis = 0 ),
-                        numpy.concatenate( ((  image_recon.real) , numpy.abs(image_recon  - image) ), axis = 0 ),
-                        numpy.concatenate( ((  image_blur.real) ,numpy.abs(image_blur  - image) ), axis = 0  ) ), axis =1 )
-    import scipy.misc 
-    scipy.misc.imsave('/home/sram/Cambridge_2012/WORD_PPTS/PROP/generalize_inverse/MRM/FIGS/noise_XX.png',disp_image)
-    fig, ax = matplotlib.pyplot.subplots()
-    cax = ax.imshow( disp_image 
-                     , norm = norm,
-            cmap= cm,interpolation = 'nearest')
-    cbar = fig.colorbar(cax, ticks=[0, 0.5, 1])
-    cbar.ax.set_yticklabels(['< 0', '0.5', '> 1'])# vertically oriented colorbar
-    matplotlib.pyplot.savefig('/home/sram/Cambridge_2012/WORD_PPTS/PROP/generalize_inverse/MRM/FIGS/noise_XX.eps', bbox_inches='tight')
-    
-#     matplotlib.pyplot.figure(1)
-#     matplotlib.pyplot.subplot(n_x,n_y,tt)        
-#     matplotlib.pyplot.imshow(numpy.abs(image_recon.real) ,
-#                             norm = norm,
-#             cmap= cm,interpolation = 'nearest')  
-    matplotlib.pyplot.show()
-    
-#     matplotlib.pyplot.title('blurred image') 
-#     matplotlib.pyplot.subplot(2,2,4)
-#     matplotlib.pyplot.imshow( numpy.abs(image_recon[85:215,73:203].real-image[85:215,73:203]),
-#                              norm = norm2,cmap= cm,interpolation = 'nearest')
-#     matplotlib.pyplot.title('residual error') 
-#      
-#     matplotlib.pyplot.show() 
-
-def rFOV_2D():
- 
-    import numpy 
-    import matplotlib#.pyplot
-    cm = matplotlib.cm.gray
-    # load example image    
-    norm=matplotlib.colors.Normalize(vmin=0.0, vmax=0.5) 
-    norm2=matplotlib.colors.Normalize(vmin=0.0, vmax=0.5)
-#     image = numpy.loadtxt('phantom_256_256.txt') 
-#     matplotlib.pyplot.imshow(image[224-128:224, 64:192] ,
-#                              norm = norm,cmap= cm,interpolation = 'nearest')
-#     matplotlib.pyplot.show()    
-#     image[128,128]= 1.0   
-    N = 384
-    Nd =(N,N) # image space size
-    import phantom
-    image = phantom.phantom(Nd[0])
-    Kd =(2*N,2*N) # k-space size   
-    Jd =(6,6) # interpolation size
-    import KspaceDesign.Propeller
-    nblade =26# numpy.round(N*3.1415/24)
-#     print('nblade',nblade)
-    theta=180.0/nblade #111.75 #
-    propObj=KspaceDesign.Propeller.Propeller( N ,24,  nblade,   theta,  1,  -1)
-    om = propObj.om
-#     print('m',numpy.size(om))
-    # load k-space points
-#     om = numpy.loadtxt('om.txt')
-#     om = numpy.loadtxt('om.gold')
-     
-    #create object
-    import cPickle
-    NufftObj = pynufft(om, Nd,Kd,Jd )
-    f = open('nufftobj.pkl','wb')
-    cPickle.dump(NufftObj,f,2)
-    f.close()
-# #      
-    f = open('nufftobj.pkl','rb')
-    NufftObj = cPickle.load(f)
-    f.close()
-    precondition = 2
-    factor = 0.01
-    NufftObj.factor = factor
-    NufftObj.precondition = precondition
-    # simulate "data"
-    data= NufftObj.forward(image )
-    data_shape = numpy.shape(data)
-    power_of_data= numpy.max(numpy.abs(data))
-#     purpose = 2 # noisy
-    purpose = 1 # noisy
-#     purpose = 0 # noise-free
-    data = data + purpose*1e-3*power_of_data*(numpy.random.randn(data_shape[0],data_shape[1])+1.0j*numpy.random.randn(data_shape[0],data_shape[1]))
-    
-    LMBD =1
-    nInner=2
-    nBreg = 75
-    
-    mu=1.0
-    gamma = 0.001
-    # now get the original image
-    #reconstruct image with 0.1 constraint1, 0.001 constraint2,
-    # 2 inner iterations and 10 outer iterations 
-    NufftObj.st['senseflag'] = 1
-
-
-    rFOV = 128
-    NufftObj = pynufft(om, (rFOV,rFOV),Kd,Jd,n_shift=(0,0))
-#     NufftObj.st['Nd'] = (rFOV,rFOV)
-#     NufftObj.st['sn'] = NufftObj.st['sn'][N/2-rFOV/2:N/2+rFOV/2 ,N/2-rFOV/2:N/2+rFOV/2 ]
-    
-#     NufftObj.linear_phase(om, (32,32), NufftObj.st['M'])# = pynufft(om, (64,64),(512,512),Jd,n_shift=(0,32))
-    NufftObj.linear_phase(  (-128, 0) )# = pynufft(om, (64,64),(512,512),Jd,n_shift=(0,32))
-    NufftObj.beta = 1
-    NufftObj.initialize_gpu() 
-#     NufftObj = pynufft(om, (256,256),(512,512),Jd)  
-    image_blur = NufftObj.backward2(data)  
-    
-
-     
-    image_recon = NufftObj.pseudoinverse(data, 1.0, LMBD, gamma,nInner, nBreg)
-#     NufftObj.linear_phase(om, (-0, 0), NufftObj.st['M'])# = pynufft(om, (64,64),(512,512),Jd,n_shift=(0,32))
-#    
-#     NufftObj.initialize_gpu()  
-#     image_recon = NufftObj.pseudoinverse(data, 1.0, LMBD, gamma,nInner, nBreg)   
-#     image_recon = NufftObj.pseudoinverse2(data)
-#     image_blur = NufftObj.backward2(data)
-    mean_image_recon = numpy.mean(numpy.real(image_recon[41:62, 8:24 ].flatten()))
-    
-    image_recon = numpy.real(image_recon)/mean_image_recon/5.0# *1.3
-    mean_image_blur = numpy.mean(numpy.real(image_blur[41:62,  8:24  ].flatten()))
-    image_blur=numpy.real(image_blur[...,0])/mean_image_blur/5.0#*1.15
-    
-    
-#     print(numpy.shape(image_recon),numpy.shape(image_blur))
-#     matplotlib.pyplot.plot(om[:,0],om[:,1],'x')
-#     matplotlib.pyplot.show()
-
-    # display images
-
-# #     matplotlib.pyplot.subplot(2,2,1)
-# #     matplotlib.pyplot.imshow(image[85:215,73:203],
-# #                              norm = norm,cmap =cm,interpolation = 'nearest')
-# #     matplotlib.pyplot.imshow( numpy.abs(image_blur[85:215,73:203, 0].real-image[85:215,73:203]),
-# #                              norm = norm2,cmap= cm,interpolation = 'nearest')
-# #     matplotlib.pyplot.show()
-#     
-# #     matplotlib.pyplot.title('PICO')   
-# #     matplotlib.pyplot.subplot(2,2,3)
-# #     matplotlib.pyplot.figure(1)
-# #     matplotlib.pyplot.imshow((image_recon[224-128:224, 64:192]).real,
-# #                              norm = norm,cmap= cm,interpolation = 'nearest')
-# #     matplotlib.pyplot.title('PICO')    
-# #     matplotlib.pyplot.show()
-# 
-#   
-# #     matplotlib.pyplot.subplot(2,2,2)
-# #     matplotlib.pyplot.figure(2)
-# #     matplotlib.pyplot.imshow(numpy.real(image_blur[224-128:224, 64:192]).real,
-# #                              norm = norm,cmap= cm,interpolation = 'nearest')
-# #     matplotlib.pyplot.title('PIPE density compensation')  
-# #     matplotlib.pyplot.show()
-    norm=matplotlib.colors.Normalize(vmin=0.0, vmax=1) 
-    matplotlib.pyplot.figure(3)
-    matplotlib.pyplot.imshow((image_recon).real,
-                             norm = norm,cmap= cm,interpolation = 'nearest')
-    matplotlib.pyplot.title('PICO')    
-#     matplotlib.pyplot.show()
-
-  
-#     matplotlib.pyplot.subplot(2,2,2)
-    matplotlib.pyplot.figure(4)
-    matplotlib.pyplot.imshow(numpy.real(image_blur).real,
-                             norm = norm,cmap= cm,interpolation = 'nearest')
-    matplotlib.pyplot.title('PIPE density compensation')  
-#     matplotlib.pyplot.show()    
-
-#     matplotlib.pyplot.figure(5)
-#     matplotlib.pyplot.imshow(numpy.abs( (image_recon).real -  image),
-#                              norm = norm2,cmap= cm,interpolation = 'nearest')
-#     matplotlib.pyplot.title('PICO')    
-#     matplotlib.pyplot.show()
-
-#     matplotlib.pyplot.figure(6)
-# #     matplotlib.pyplot.subplot(2,2,2)
-#     matplotlib.pyplot.imshow( numpy.abs(numpy.real(image_blur).real -  image),
-#                              norm = norm2,cmap= cm,interpolation = 'nearest')
-#     matplotlib.pyplot.title('PIPE density compensation')  
-# #     matplotlib.pyplot.show()
-#     matplotlib.pyplot.figure(7)    
-#     matplotlib.pyplot.imshow(numpy.abs(image_recon[224-128:224, 64:192].real - image[224-128:224, 64:192]),
-#                              norm = norm2,cmap= cm,interpolation = 'nearest')
-#     matplotlib.pyplot.title('PICO')    
-#     matplotlib.pyplot.show()
-
-#     matplotlib.pyplot.figure(8)  
-# #     matplotlib.pyplot.subplot(2,2,2)
-#     matplotlib.pyplot.imshow(numpy.abs(numpy.real(image_blur[224-128:224, 64:192]).real- image[224-128:224, 64:192] ),
-#                              norm = norm2,cmap= cm,interpolation = 'nearest')
-#     matplotlib.pyplot.title('PIPE density compensation')  
-    matplotlib.pyplot.show()
-    
-#     matplotlib.pyplot.title('blurred image') 
-#     matplotlib.pyplot.subplot(2,2,4)
-#     matplotlib.pyplot.imshow( numpy.abs(image_recon[85:215,73:203].real-image[85:215,73:203]),
-#                              norm = norm2,cmap= cm,interpolation = 'nearest')
-#     matplotlib.pyplot.title('residual error') 
-#      
-#     matplotlib.pyplot.show() 
-def test_radial():
- 
-    import numpy 
-    import matplotlib#.pyplot
-    cm = matplotlib.cm.gray
-    # load example image    
-    norm=matplotlib.colors.Normalize(vmin=0.0, vmax=1.0) 
-    norm2=matplotlib.colors.Normalize(vmin=0.0, vmax=0.5)
-#     image = numpy.loadtxt('phantom_256_256.txt') 
-#     matplotlib.pyplot.imshow(image[224-128:224, 64:192] ,
-#                              norm = norm,cmap= cm,interpolation = 'nearest')
-#     matplotlib.pyplot.show()    
-#     image[128,128]= 1.0   
-    N = 256
-    Nd =(N,N) # image space size
-    import phantom
-    image = phantom.phantom(Nd[0])
-    Kd =(2*N,2*N) # k-space size   
-    Jd =(8,8) # interpolation size
-    import KspaceDesign.Radial
-
-    nblade =  48
-    theta=  68.754 #
-    propObj=KspaceDesign.Radial.Radial( N ,  nblade,   theta,   -1)
-    om = propObj.om
-    # load k-space points
-#     om = numpy.loadtxt('om.txt')
-#     om = numpy.loadtxt('om.gold')
-     
-    #create object
-    NufftObj = pynufft(om, Nd,Kd,Jd)
-#     NufftObj = pynufft(om, (256,256),(512,512),Jd) 
-    precondition = 1
-    factor = 0.1
-    NufftObj.factor = factor
-    NufftObj.nufft_type = 1
-    NufftObj.precondition = precondition
-    # simulate "data"
-    data= NufftObj.forward(image )
-    LMBD =5
-    nInner=2
-    nBreg =50
-    
-    mu=1.0
-    gamma = 0.001
-    # now get the original image
-    #reconstruct image with 0.1 constraint1, 0.001 constraint2,
-    # 2 inner iterations and 10 outer iterations 
-    NufftObj.st['senseflag'] = 1
-#     NufftObj = pynufft(om, (256,256),(512,512),Jd,n_shift=(192,96))
-#     NufftObj = pynufft(om, (256,256),(512,512),Jd)  
-    image_blur = NufftObj.backward2(data)  
-    
-
-     
-    image_recon = NufftObj.pseudoinverse(data, 1.0, LMBD, gamma,nInner, nBreg)
-#     image_recon = NufftObj.pseudoinverse2(data)
-#     image_blur = NufftObj.backward2(data)
-    image_recon = Normalize(numpy.real(image_recon))#*  1.1# *1.3
-    image_blur=Normalize(numpy.real(image_blur[...,0]))#*1.15
-    print(numpy.shape(image_recon),numpy.shape(image_blur))
-    matplotlib.pyplot.plot(om[:,0],om[:,1],'x')
-    matplotlib.pyplot.show()
- 
-
-    # display images
-
-#     matplotlib.pyplot.subplot(2,2,1)
-#     matplotlib.pyplot.imshow(image[85:215,73:203],
-#                              norm = norm,cmap =cm,interpolation = 'nearest')
-#     matplotlib.pyplot.imshow( numpy.abs(image_blur[85:215,73:203, 0].real-image[85:215,73:203]),
-#                              norm = norm2,cmap= cm,interpolation = 'nearest')
-#     matplotlib.pyplot.show()
-    
-#     matplotlib.pyplot.title('PICO')   
-#     matplotlib.pyplot.subplot(2,2,3)
-#     matplotlib.pyplot.figure(1)
-#     matplotlib.pyplot.imshow((image_recon[224-128:224, 64:192]).real,
-#                              norm = norm,cmap= cm,interpolation = 'nearest')
-#     matplotlib.pyplot.title('PICO')    
-#     matplotlib.pyplot.show()
-
-  
-#     matplotlib.pyplot.subplot(2,2,2)
-#     matplotlib.pyplot.figure(2)
-#     matplotlib.pyplot.imshow(numpy.real(image_blur[224-128:224, 64:192]).real,
-#                              norm = norm,cmap= cm,interpolation = 'nearest')
-#     matplotlib.pyplot.title('PIPE density compensation')  
-#     matplotlib.pyplot.show()
-    
-    matplotlib.pyplot.figure(3)
-    matplotlib.pyplot.imshow((image_recon).real,
-                             norm = norm,cmap= cm,interpolation = 'nearest')
-    matplotlib.pyplot.title('PICO')    
-#     matplotlib.pyplot.show()
-
-  
-#     matplotlib.pyplot.subplot(2,2,2)
-    matplotlib.pyplot.figure(4)
-    matplotlib.pyplot.imshow(numpy.real(image_blur).real,
-                             norm = norm,cmap= cm,interpolation = 'nearest')
-    matplotlib.pyplot.title('PIPE density compensation')  
-#     matplotlib.pyplot.show()    
-
-#     matplotlib.pyplot.figure(5)
-#     matplotlib.pyplot.imshow(numpy.abs( (image_recon).real -  image),
-#                              norm = norm2,cmap= cm,interpolation = 'nearest')
-#     matplotlib.pyplot.title('PICO')    
-#     matplotlib.pyplot.show()
-
-#     matplotlib.pyplot.figure(6)
-# #     matplotlib.pyplot.subplot(2,2,2)
-#     matplotlib.pyplot.imshow( numpy.abs(numpy.real(image_blur).real -  image),
-#                              norm = norm2,cmap= cm,interpolation = 'nearest')
-#     matplotlib.pyplot.title('PIPE density compensation')  
-# #     matplotlib.pyplot.show()
-#     matplotlib.pyplot.figure(7)    
-#     matplotlib.pyplot.imshow(numpy.abs(image_recon[224-128:224, 64:192].real - image[224-128:224, 64:192]),
-#                              norm = norm2,cmap= cm,interpolation = 'nearest')
-#     matplotlib.pyplot.title('PICO')    
-#     matplotlib.pyplot.show()
-
-#     matplotlib.pyplot.figure(8)  
-# #     matplotlib.pyplot.subplot(2,2,2)
-#     matplotlib.pyplot.imshow(numpy.abs(numpy.real(image_blur[224-128:224, 64:192]).real- image[224-128:224, 64:192] ),
-#                              norm = norm2,cmap= cm,interpolation = 'nearest')
-#     matplotlib.pyplot.title('PIPE density compensation')  
-    matplotlib.pyplot.show()
-    
-#     matplotlib.pyplot.title('blurred image') 
-#     matplotlib.pyplot.subplot(2,2,4)
-#     matplotlib.pyplot.imshow( numpy.abs(image_recon[85:215,73:203].real-image[85:215,73:203]),
-#                              norm = norm2,cmap= cm,interpolation = 'nearest')
-#     matplotlib.pyplot.title('residual error') 
-#      
-#     matplotlib.pyplot.show() 
 def test_1D():
 # import several modules
     import numpy 
@@ -2643,7 +2275,7 @@ if __name__ == '__main__':
 #     test_wavelet()
 #     test_1D()
 #     test_prolate()
-    test_2D()
+#     test_radial()
 #     x = numpy.random.random(1024)
 #     print(DFT_point(x, -0))
 #     print( numpy.allclose(DFT_slow(x), numpy.fft.fft(x)) )

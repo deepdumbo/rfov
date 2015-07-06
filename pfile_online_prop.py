@@ -261,7 +261,7 @@ def foo5(data_filename):
     regexp = re.compile(pattern)
     pfilename = regexp.search(data_filename)
     print('pfilename = ', pfilename.group())
-    script_dir = os.path.dirname('/home/recon/pfiles/')
+    script_dir = os.path.dirname('~/pfiles/')
     print('data_filename',data_filename)
     rel_path = pfilename.group()+'.matlist.txt'
     abs_file_path = os.path.join(script_dir, rel_path)

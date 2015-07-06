@@ -1,7 +1,7 @@
 '''@package docstring
 @author: Jyh-Miin Lin  (Jimmy), Cambridge University
 @address: jyhmiinlin@gmail.com
-Created on 2013/1/21
+Initial created date: 2013/1/21
 ================================================================================
     This file is part of pynufft.
 
@@ -36,15 +36,11 @@ Created on 2013/1/21
     Nonuniform fast Fourier transforms using min-max interpolation.
     IEEE Trans. Sig. Proc., 51(2):560-74, Feb. 2003.  
 
-    and 
-
-    2. Note the "better" results by min-max interpolator of J.A. 
-       Fessler et al
     3. Other relevant works:
-    *c-version: http://www-user.tu-chemnitz.de/~potts/nfft/
-    is a c-library with gaussian interpolator
+     NFFT is a c-library with gaussian interpolator 
+     (http://www-user.tu-chemnitz.de/~potts/nfft/)
     *fortran version: http://www.cims.nyu.edu/cmcl/nufft/nufft.html
-    alpha/beta stage
+    at alpha/beta stage
     *MEX-version 
     http://www.mathworks.com/matlabcentral/fileexchange/
          25135-nufft-nufft-usffft
@@ -834,7 +830,8 @@ class nufft:
             koff=nufft_offset(om[:,dimid], J, K)
             # FORMULA 9, find the indexes on Kd grids, of each M point
             kd[dimid]= numpy.mod(outer_sum( numpy.arange(1,J+1)*1.0, koff),K)
-            print('kd[',dimid,']',kd[dimid].shape)
+            if self.debug > 0:
+                print('kd[',dimid,']',kd[dimid].shape)
 #             phase_kd[dimid] = - ( numpy.arange(0,1.0, 1.00/K) - 0.5 )*2.0*numpy.pi*n_shift[dimid]# new phase2
              
             if dimid > 0: # trick: pre-convert these indices into offsets!
@@ -851,7 +848,8 @@ class nufft:
         for dimid in xrange(1,dd):
             Jprod = numpy.prod(Jd[:dimid+1])
             Kprod = numpy.prod(Kd[:dimid+1])
-            print('Kprod',Kprod)
+            if self.debug > 0:
+                print('Kprod',Kprod)
             kk = block_outer_sum(kk, kd[dimid])+1 # outer sum of indices
             kk = kk.reshape((Jprod, M),order='F')
             
@@ -914,7 +912,8 @@ class nufft:
 #         tmp_size = numpy.shape(self.st['w'])
 #         print('shape of tmp',numpy.shape(self.st['w'] ))        
 #         self.st['w'] = numpy.reshape(self.st['w'], tmp_size +(1,))
-        print('shape of tmp',numpy.shape(self.st['w'] ))
+        if self.debug > 0:
+            print('shape of tmp',numpy.shape(self.st['w'] ))
 #         self.st['w'] = numpy.sum(self.st['p']  )
 #     def reduce_fov(self,rfov): # method to reduce FOV
 #        
@@ -951,8 +950,10 @@ class nufft:
             pyfftw.interfaces.cache.enable()
             pyfftw.interfaces.cache.set_keepalive_time(60) # keep live 60 seconds
             pyfftw_flag = 1
+#             if self.debug > 0:
             print('use pyfftw')
         except:
+#             if self.debug > 0:
             print('no pyfftw, use slow fft')
             pyfftw_flag = 0
         return pyfftw_flag  
@@ -963,8 +964,10 @@ class nufft:
 #             dtype = dtype#numpy.complex64
             data = numpy.zeros( self.st['Kd'],dtype=dtype)
 #             data2 = numpy.empty_like(data)
+#             if self.debug > 0:
             print('get_platform')
             api = cluda.ocl_api()
+#             if self.debug > 0:
             print('api=',api== cluda.ocl_api())
             if api==cluda.cuda_api():
                 self.gpu_api = 'cuda'
@@ -979,11 +982,18 @@ class nufft:
             self.myfft = myfft.compile(self.thr,fast_math=True)
  
             self.gpu_flag=1
+#             if self.debug > 0:
             print('create gpu fft?',self.gpu_flag)
             print('line 642')
+
+                
             W= self.st['w'][...,0]
-            print('line 645')
+#             if self.debug > 0:
+            print('line 645')   
+                
             self.W = numpy.reshape(W, self.st['Kd'],order='C')
+            
+#             if self.debug > 0:
             print('line 647')
 #             self.thr2 = api.Thread.create() 
             print('line 649')
@@ -991,10 +1001,12 @@ class nufft:
             self.W2_dev = self.thr.to_device(self.W.astype(dtype))
             self.tmp_dev = self.thr.to_device(self.W.astype(dtype)) # device memory
 #             self.tmp2_dev = self.thr.to_device(1.0/self.W.astype(dtype)) # device memory
-            self.gpu_flag=1                
+            self.gpu_flag=1      
+#             if self.debug > 0:          
             print('line 652')
         except:
-            self.gpu_flag=0              
+            self.gpu_flag=0
+#             if self.debug > 0:              
             print('get error, using cpu')
 #     def __initialize_gpu2(self):
 #         try:
