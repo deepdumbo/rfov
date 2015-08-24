@@ -11,8 +11,8 @@ $cd tests
 $./test_scripts  
 
 If you see images, the reconstruction should have been successful.   
-If you see "reconstruction accomplished using GPU", GPU has been for the reconstruction.  
-Otherwise, CPU is used instead of GPU.   
+If you see "reconstruction accomplished using GPU", GPU has been applied to the reconstruction.  
+Otherwise, CPU is used rather than GPU.   
 
 # Dependency
 The software was tested on the following hardware software:   
